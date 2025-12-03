@@ -33,8 +33,8 @@ def get_climate_data(latitude: float, longitude: float, start_date: str, end_dat
         "daily": [
             "precipitation_sum",
             "rain_sum",
-            "soil_moisture_0_to_10cm",
-            "soil_moisture_10_to_40cm"
+            "temperature_2m_max",
+            "temperature_2m_min"
         ]
     }
     
@@ -52,16 +52,19 @@ def get_climate_data(latitude: float, longitude: float, start_date: str, end_dat
         ),
         "precipitation_mm": daily.Variables(0).ValuesAsNumpy(),
         "rainfall_mm": daily.Variables(1).ValuesAsNumpy(),
-        "soil_moisture_0_10cm": daily.Variables(2).ValuesAsNumpy(),
-        "soil_moisture_10_40cm": daily.Variables(3).ValuesAsNumpy()
+        "temp_max": daily.Variables(2).ValuesAsNumpy(),
+        "temp_min": daily.Variables(3).ValuesAsNumpy()
     }
     
     df = pd.DataFrame(data=daily_data)
     
-    # Calculate Soil Saturation Index (SSI) as average of both layers
-    df['SSI'] = (df['soil_moisture_0_10cm'] + df['soil_moisture_10_40cm']) / 2
-    
     # Calculate 7-day rolling rainfall for flood indicator
     df['rainfall_7day'] = df['rainfall_mm'].rolling(window=7, min_periods=1).sum()
+    
+    # Calculate Soil Saturation Index (SSI) proxy from cumulative precipitation
+    # Higher recent rainfall = higher soil saturation
+    df['rainfall_30day'] = df['rainfall_mm'].rolling(window=30, min_periods=1).sum()
+    # Normalize SSI to roughly 0-1 range (assuming max 30-day rainfall ~300mm)
+    df['SSI'] = (df['rainfall_30day'] / 300).clip(0, 1)
     
     return df
