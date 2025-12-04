@@ -101,7 +101,11 @@ def main():
     q_baseline = model.estimate_baseline_q(claims)
 
     # Climate-adjusted q using GLM with standardized temperature and rainfall
-    model.estimate_climate_adjusted_q(claims, climate_vars=['temp_std', 'rain_std'])
+    model_results = model.estimate_climate_adjusted_q(claims, climate_vars=['temp_std', 'rain_std'])
+
+    print("\n--- GLM Model Coefficients (ANOVA-like Table) ---")
+    print(model_results['model'].summary().tables[1].as_text())
+    print("-------------------------------------------------")
 
     # Scenario analysis
     scenarios = model.scenario_analysis(claims, climate_vars=['temp_std', 'rain_std'])
