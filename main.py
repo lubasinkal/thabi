@@ -81,11 +81,8 @@ def main():
     # Create an inverted standardized rainfall variable for modeling purposes
     # A higher inverted_rain_std corresponds to lower actual rainfall, which
     # intuitively should lead to higher flood severity and thus lower q.
-    claims['inverted_rain_std'] = -claims['rain_std']
-
-    # Create SSI (Standardized Severity Index) combining temperature and rainfall
-    # Higher temperature and lower rainfall = higher severity
-    claims['SSI'] = (claims['temp_std'] + (1 - claims['rain_std'])) / 2
+    # The original SSI (Standardized Severity Index) combined temperature and rainfall
+    # claims['SSI'] = (claims['temp_std'] + (1 - claims['rain_std'])) / 2
 
     # Rename for compatibility with existing model
     claims = claims.rename(columns={'Claim Cost': 'loss_amount'})
@@ -103,14 +100,11 @@ def main():
     # Baseline q using MLE
     q_baseline = model.estimate_baseline_q(claims)
 
-    # Climate-adjusted q using GLM
-    # Using 'inverted_rain_std' to align the expected sign of the coefficient
-    # (negative beta implies higher severity with lower rainfall).
-    model.estimate_climate_adjusted_q(claims, climate_vars=['inverted_rain_std'])
+    # Climate-adjusted q using GLM with standardized temperature and rainfall
+    model.estimate_climate_adjusted_q(claims, climate_vars=['temp_std', 'rain_std'])
 
     # Scenario analysis
-    # Using 'inverted_rain_std' for scenario analysis to reflect the adjusted climate variable.
-    scenarios = model.scenario_analysis(claims, climate_vars=['inverted_rain_std'])
+    scenarios = model.scenario_analysis(claims, climate_vars=['temp_std', 'rain_std'])
 
     # Step 3: Get q values for pricing
     print("\n[3/5] Calculating climate-adjusted q parameters for pricing scenarios...")

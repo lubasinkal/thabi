@@ -147,27 +147,6 @@ class FloodRiskModel:
 
         return q_pred
 
-    def calculate_climate_var_for_target_q(self, target_q: float, climate_var_name: str) -> float:
-        """
-        Calculates the value of a climate variable required to achieve a target q.
-        Model: ln(q_t) = β₀ + β₁ × ClimateVar_t
-        So, ClimateVar_t = (ln(target_q) - β₀) / β₁
-        """
-        if self.beta_0 is None or self.beta_coeffs is None:
-            raise ValueError("GLM model must be fitted first.")
-        if climate_var_name not in self.beta_coeffs:
-            raise ValueError(f"Climate variable '{climate_var_name}' not found in fitted GLM.")
-
-        beta_0 = self.beta_0
-        beta_1 = self.beta_coeffs[climate_var_name]
-
-        if beta_1 == 0:
-            raise ValueError("Coefficient for climate variable is zero, cannot calculate target value.")
-
-        ln_target_q = np.log(target_q)
-        climate_var_value = (ln_target_q - beta_0) / beta_1
-        return climate_var_value
-
     def scenario_analysis(self, claims: pd.DataFrame, climate_vars: List[str] = ['SSI']) -> pd.DataFrame:
         """
         Perform scenario analysis: baseline vs adverse climate conditions
@@ -185,34 +164,26 @@ class FloodRiskModel:
         if self.beta_0 is None:
             self.estimate_climate_adjusted_q(claims, climate_vars) # Pass climate_vars here
 
-        # Ensure we are working with a single climate variable for this targeted scenario logic
-        if len(climate_vars) != 1:
-            warnings.warn("Scenario analysis for targeted q values is best suited for a single climate variable. Using the first one.")
-            primary_climate_var = climate_vars[0]
-        else:
-            primary_climate_var = climate_vars[0]
-
-        # Calculate scenario values for the primary climate variable
-        climate_values_for_var = claims[primary_climate_var].values
-
-        avg_climate_val = climate_values_for_var.mean()
-        p50_climate_val = np.percentile(climate_values_for_var, 50)
-
-        # Define target q values for adverse scenarios to ensure they are lower than baseline
-        # Let's aim for 10% and 20% heavier tail than baseline (lower q)
-        # Ensure target_q is positive and smaller than baseline to reflect heavier tail
-        q_adverse_target = self.baseline_q * 0.9 if self.baseline_q * 0.9 > 0 else self.baseline_q * 0.1
-        q_extreme_target = self.baseline_q * 0.8 if self.baseline_q * 0.8 > 0 else self.baseline_q * 0.05
-
-        # Calculate the climate variable values that would achieve these target q values
-        adverse_climate_val = self.calculate_climate_var_for_target_q(q_adverse_target, primary_climate_var)
-        extreme_climate_val = self.calculate_climate_var_for_target_q(q_extreme_target, primary_climate_var)
+        # Calculate scenarios for each climate variable
+        scenario_climate_data = {}
+        for var in climate_vars:
+            values = claims[var].values
+            scenario_climate_data[var] = {
+                'mean': values.mean(),
+                'p50': np.percentile(values, 50),
+                'p95': np.percentile(values, 95),
+                'p99': np.percentile(values, 99)
+            }
 
         # Prepare dictionaries for predict_q based on scenarios
-        avg_climate_dict = {primary_climate_var: avg_climate_val}
-        p50_climate_dict = {primary_climate_var: p50_climate_val}
-        adverse_climate_dict = {primary_climate_var: adverse_climate_val}
-        extreme_climate_dict = {primary_climate_var: extreme_climate_val}
+        # For simplicity, if multiple climate_vars are used, we'll create scenarios
+        # by taking the relevant percentile for each variable. This assumes correlations.
+        # A more sophisticated approach would be needed for independent scenario construction.
+
+        avg_climate_dict = {var: scenario_climate_data[var]['mean'] for var in climate_vars}
+        p50_climate_dict = {var: scenario_climate_data[var]['p50'] for var in climate_vars}
+        p95_climate_dict = {var: scenario_climate_data[var]['p95'] for var in climate_vars}
+        p99_climate_dict = {var: scenario_climate_data[var]['p99'] for var in climate_vars}
 
         scenarios = pd.DataFrame({
             'Scenario': ['Baseline (Static)', 'Average Climate', '50th Percentile',
@@ -221,19 +192,20 @@ class FloodRiskModel:
                 self.baseline_q,
                 self.predict_q(avg_climate_dict),
                 self.predict_q(p50_climate_dict),
-                self.predict_q(adverse_climate_dict),
-                self.predict_q(extreme_climate_dict)
+                self.predict_q(p95_climate_dict),
+                self.predict_q(p99_climate_dict)
             ]
         })
 
         # Add climate values to the DataFrame for inspection
-        scenarios[f'{primary_climate_var}_Scenario_Value'] = [
-            avg_climate_val, # For Baseline (Static), use mean as a placeholder for context
-            avg_climate_val,
-            p50_climate_val,
-            adverse_climate_val,
-            extreme_climate_val
-        ]
+        for var in climate_vars:
+            scenarios[f'{var}_Scenario_Value'] = [
+                scenario_climate_data[var]['mean'], # For Baseline (Static), use mean as a placeholder for context
+                scenario_climate_data[var]['mean'],
+                scenario_climate_data[var]['p50'],
+                scenario_climate_data[var]['p95'],
+                scenario_climate_data[var]['p99']
+            ]
 
         print(f"\n=== Scenario Analysis ===")
         print(scenarios.to_string(index=False))
@@ -293,7 +265,7 @@ class FloodRiskModel:
         print(f"\n✓ Mean Excess Plot saved to: mean_excess_plot.png")
 
         return fig
-```
+
 
 if __name__ == "__main__":
     from synthetic_claims import generate_synthetic_claims
