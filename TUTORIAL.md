@@ -391,13 +391,11 @@ Orchestrates everything in a clear workflow.
 #### Function: `main()`
 
 **Structure:**
-1. Print header
-2. Load data (with error handling)
-3. Fit Pareto model
-4. Generate scenarios
-5. Price contracts
-6. Export results
-7. Print summary
+1. Load data with error handling
+2. Fit Pareto model
+3. Generate scenarios
+4. Price contracts
+5. Export results
 
 **Error handling example:**
 ```python

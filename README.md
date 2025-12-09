@@ -10,7 +10,7 @@ thabi/
 ├── data_loader.py            # Data loading and preprocessing
 ├── pareto_model.py           # Pareto distribution parameter estimation
 ├── reinsurance_pricer.py     # Reinsurance contract pricing
-├── main_clean.py             # Main analysis script (USE THIS!)
+├── main.py                   # Main analysis script
 ├── data/
 │   ├── CAT Claims.csv        # Claims data (Excel format)
 │   └── temp_hazard.csv       # Climate data (optional)
@@ -28,11 +28,7 @@ thabi/
 ### Running the Analysis
 
 ```bash
-# Using virtual environment
-.venv\Scripts\python.exe main_clean.py
-
-# Or if python is in PATH
-python main_clean.py
+python main.py
 ```
 
 The script will:

@@ -4,7 +4,7 @@
 
 ```
 thabi/
-├── 🎮 main_clean.py              # START HERE - Run this file
+├── main.py                       # Main script
 ├── ⚙️  config.py                  # All constants and parameters
 ├── 📥 data_loader.py              # Load and preprocess data
 ├── 📊 pareto_model.py             # Pareto distribution fitting
@@ -17,11 +17,7 @@ thabi/
 ## 🚀 How to Run
 
 ```bash
-# Simple way
-python main_clean.py
-
-# With virtual environment
-.venv\Scripts\python.exe main_clean.py
+python main.py
 ```
 
 ## 📦 Module Cheat Sheet

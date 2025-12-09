@@ -88,11 +88,8 @@ class ParetoModel:
         print(f"K (scale parameter): ${self.scale_K:,.2f}")
         print(f"Number of claims used: {n}")
         print(f"Estimated q (shape parameter): {q_hat:.4f}")
-        print("\nInterpretation:")
-        print(f"  - q < 1: Infinite mean (extremely heavy tail) {'<-- YOUR DATA' if q_hat < 1 else ''}")
-        print(f"  - q < 2: Infinite variance (very heavy tail) {'<-- YOUR DATA' if q_hat < 2 else ''}")
-        print(f"  - q > 2: Finite mean and variance {'<-- YOUR DATA' if q_hat > 2 else ''}")
-        print("  - Lower q = heavier tail = higher catastrophe risk")
+        if q_hat < 1:
+            print("Note: q < 1 indicates infinite mean (extremely heavy tail)")
         
         return q_hat
     
