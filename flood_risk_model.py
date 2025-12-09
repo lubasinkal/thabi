@@ -29,32 +29,45 @@ class FloodRiskModel:
 
     def estimate_baseline_q(self, claims: pd.DataFrame) -> float:
         """
-        Step 2: Estimate baseline Pareto parameter q using MLE
-        Formula: q_hat = n / sum(ln(x_i / K))\n
+        Step 2: Estimate baseline Pareto parameter q using MLE for Type I Pareto
+        
+        For Type I Pareto with known K (minimum value), the MLE for q is:
+        q_hat = n / sum(ln(x_i / K))
+        
+        where all x_i ≥ K
+        
         Args:
             claims: DataFrame with 'loss_amount' column
 
         Returns:
-            Estimated baseline q parameter
+            Estimated baseline q parameter (shape parameter)
         """
-        # Filter claims above threshold
-        filtered_losses = claims[claims['loss_amount'] > self.threshold]['loss_amount'].values
+        # For Type I Pareto: ALL claims should be >= K (K is the minimum)
+        # Filter to ensure no claims below K (data quality check)
+        filtered_losses = claims[claims['loss_amount'] >= self.threshold]['loss_amount'].values
         n = len(filtered_losses)
+        
+        # Check if K is truly the minimum
+        actual_min = claims['loss_amount'].min()
+        if actual_min < self.threshold:
+            print(f"   WARNING: K = {self.threshold:.2f} but minimum claim = {actual_min:.2f}")
+            print(f"   Some claims are below K - this violates Type I Pareto assumption")
 
         if n == 0:
-            raise ValueError(f"No claims above threshold {self.threshold}")
+            raise ValueError(f"No claims >= K={self.threshold}")
 
-        # MLE formula for Pareto q
+        # MLE formula for Pareto shape parameter q (when K is known)
         log_ratios = np.log(filtered_losses / self.threshold)
         q_hat = n / np.sum(log_ratios)
 
         self.baseline_q = q_hat
 
-        print(f"\n=== Baseline Pareto Estimation ===")
-        print(f"Threshold (K): ${self.threshold:,.0f}")
-        print(f"Number of claims above threshold: {n}")
-        print(f"Baseline q estimate: {q_hat:.4f}")
-        print(f"Interpretation: Higher q = lighter tail, Lower q = heavier tail")
+        print(f"\n=== Type I Pareto Distribution - Baseline Estimation ===")
+        print(f"K (scale parameter, minimum value): ${self.threshold:,.2f}")
+        print(f"Number of claims in dataset: {n}")
+        print(f"Shape parameter q (MLE): {q_hat:.4f}")
+        print(f"Interpretation: q > 1 means finite mean, q > 2 means finite variance")
+        print(f"                Lower q = heavier tail, higher insurance risk")
 
         return q_hat
 
@@ -95,19 +108,19 @@ class FloodRiskModel:
 
         print(f"\n=== Climate-Adjusted q Model (GLM) ===")
         # Dynamically build the model equation string
-        model_equation_parts = [f"β₀"] + [f"β{i+1} × {var}_t" for i, var in enumerate(climate_vars)]
+        model_equation_parts = ["beta_0"] + [f"beta_{i+1} * {var}_t" for i, var in enumerate(climate_vars)]
         print(f"Model: ln(q_t) = {' + '.join(model_equation_parts)}")
 
-        print(f"β₀ (intercept): {self.beta_0:.4f} (p-value: {self.glm_model.pvalues.iloc[0]:.4f})")
+        print(f"beta_0 (intercept): {self.beta_0:.4f} (p-value: {self.glm_model.pvalues.iloc[0]:.4f})")
         for i, var in enumerate(climate_vars):
             coeff = self.beta_coeffs.iloc[i]
             p_value = self.glm_model.pvalues.iloc[i+1] # +1 because intercept is at index 0
-            print(f"β{i+1} ({var} effect): {coeff:.4f} (p-value: {p_value:.4f})")
+            print(f"beta_{i+1} ({var} effect): {coeff:.4f} (p-value: {p_value:.4f})")
 
             if coeff < 0:
-                print(f"✓ Negative β{i+1}: Higher {var} → Lower q → Heavier tail (as expected for severity increasing with variable)")
+                print(f"  -> Negative beta_{i+1}: Higher {var} -> Lower q -> Heavier tail")
             else:
-                print(f"⚠ Positive β{i+1}: Higher {var} → Higher q → Lighter tail (unexpected for severity increasing with variable)")
+                print(f"  -> Positive beta_{i+1}: Higher {var} -> Higher q -> Lighter tail")
 
         return {
             'beta_0': self.beta_0,
@@ -215,6 +228,7 @@ class FloodRiskModel:
     def mean_excess_plot(self, claims: pd.DataFrame, thresholds: np.ndarray = None):
         """
         Generate Mean Excess Plot for threshold selection
+        A linear relationship in the plot indicates Pareto tail behavior
 
         Args:
             claims: DataFrame with 'loss_amount' column
@@ -222,7 +236,13 @@ class FloodRiskModel:
         """
         import matplotlib.pyplot as plt
 
-        losses = claims['loss_amount'].values
+        # Handle both column names
+        if 'loss_amount' in claims.columns:
+            losses = claims['loss_amount'].values
+        elif 'Claim Cost' in claims.columns:
+            losses = claims['Claim Cost'].values
+        else:
+            raise ValueError("No loss amount column found")
 
         if thresholds is None:
             # Use quantiles from 10th to 95th percentile
@@ -262,7 +282,7 @@ class FloodRiskModel:
 
         plt.tight_layout()
         plt.savefig('mean_excess_plot.png', dpi=150, bbox_inches='tight')
-        print(f"\n✓ Mean Excess Plot saved to: mean_excess_plot.png")
+        plt.close()
 
         return fig
 

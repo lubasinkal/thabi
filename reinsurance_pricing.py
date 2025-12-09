@@ -236,7 +236,7 @@ class ReinsurancePricer:
     ):
         """Export pricing results to CSV"""
         pricing_df.to_csv(filename, index=False)
-        print(f"\n✓ Pricing summary exported to: {filename}")
+        print(f"\n[OK] Pricing summary exported to: {filename}")
 
 
 if __name__ == "__main__":
